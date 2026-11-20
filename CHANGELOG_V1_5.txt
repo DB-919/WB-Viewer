@@ -1,0 +1,14 @@
+BECKER WB VIEWER WEBAPP V1.5 – KOMPLETTPAKET
+================================================
+
+- Vollständige WebApp erneut aus dem letzten Funktionsstand aufgebaut.
+- Robuster MN/AT-Loggerimport aus V1.4 vollständig übernommen.
+- 1 bis 4 tatsächlich belegte Kanäle werden automatisch erkannt.
+- Leere CH2/CH3/CH4-Felder bleiben positionsgetreu; keine Kanalverschiebung.
+- Geprüft mit den vorhandenen Loggerfällen:
+  * 208-1-LG-10262314.TXT: 6656 Punkte, CH1-CH4
+  * 208-3_221-3_221-4_WA_11141201.TXT: 5830 Punkte, nur CH1
+  * 221-3_221-4_LG_11121822.TXT: 9770 Punkte, CH1 + CH4
+- Sämtliche bisherigen Viewer-Funktionen enthalten: Kanäle, Diagramm, Starttemperatur, Minuten/Stunden, Y-Grenzen, Sollbereiche, Haltebereich, PNG/SVG/CSV/PDF.
+- PWA-Paket ergänzt: Manifest, Service Worker und App-Icons.
+- Direkter lokaler Betrieb über index.html bleibt erhalten.

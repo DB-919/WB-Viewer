@@ -1,0 +1,265 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>WB Viewer V1.5 Importtest</title></head><body><h1>Importtest</h1><input id="f" type="file" multiple accept=".txt,.csv,.tsv"><pre id="o">Dateien auswählen…</pre><script>
+
+(function(root){
+  'use strict';
+
+  function cleanText(text){
+    return String(text || '').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  }
+
+  function decodeArrayBuffer(buffer){
+    const bytes = new Uint8Array(buffer);
+    if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) return new TextDecoder('utf-16le').decode(bytes);
+    if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) return new TextDecoder('utf-16be').decode(bytes);
+    const sample = bytes.slice(0, Math.min(bytes.length, 3000));
+    let evenNull=0, oddNull=0;
+    for(let i=0;i<sample.length;i++) if(sample[i]===0) (i%2?oddNull++:evenNull++);
+    if(oddNull > sample.length*0.12) return new TextDecoder('utf-16le').decode(bytes);
+    if(evenNull > sample.length*0.12) return new TextDecoder('utf-16be').decode(bytes);
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  function num(v){
+    if(v === null || v === undefined) return null;
+    let s = String(v).trim().replace(/\s/g,'');
+    if(!s || /^[-–—]$/.test(s)) return null;
+    if(s.includes(',') && !s.includes('.')) s=s.replace(',','.');
+    else if(s.includes(',') && s.includes('.')) {
+      if(s.lastIndexOf(',') > s.lastIndexOf('.')) s=s.replace(/\./g,'').replace(',','.');
+      else s=s.replace(/,/g,'');
+    }
+    const n=Number(s);
+    return Number.isFinite(n)?n:null;
+  }
+
+  function normHeader(v){
+    return String(v||'').trim().toLowerCase()
+      .replace(/[°º]/g,'').replace(/[ä]/g,'a').replace(/[ö]/g,'o').replace(/[ü]/g,'u')
+      .replace(/[^a-z0-9]+/g,'');
+  }
+
+  function parseDateTime(dateText, timeText){
+    let d=String(dateText||'').trim(), t=String(timeText||'').trim().replace(',','.');
+    let m=d.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if(!m) {
+      const g=d.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/);
+      if(g){ let y=Number(g[3]); if(y<100)y+=2000; m=[g[0],String(y),g[2],g[1]]; }
+    }
+    const tm=t.match(/^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/);
+    if(!m || !tm) return null;
+    const ms = tm[4] ? Math.round(Number('0.'+tm[4])*1000) : 0;
+    return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]), Number(tm[1]), Number(tm[2]), Number(tm[3]||0), ms).getTime();
+  }
+
+  function fmtTimestamp(ms){
+    if(!Number.isFinite(ms)) return '';
+    const d=new Date(ms), p=n=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  function finalize(rawRows, channels, meta){
+    const rows=[];
+    let t0=null;
+    for(const r of rawRows){
+      let elapsed = Number.isFinite(r.elapsedMin) ? r.elapsedMin : null;
+      if(Number.isFinite(r.timeMs)) {
+        if(t0===null)t0=r.timeMs;
+        elapsed=(r.timeMs-t0)/60000;
+      }
+      if(!Number.isFinite(elapsed)) continue;
+      const out={elapsedMin:elapsed, timestamp:Number.isFinite(r.timeMs)?fmtTimestamp(r.timeMs):(r.timestamp||'')};
+      let any=false;
+      for(const ch of channels){ const v=num(r[ch]); out[ch]=v; if(v!==null)any=true; }
+      if(any) rows.push(out);
+    }
+    rows.sort((a,b)=>a.elapsedMin-b.elapsedMin);
+    if(!rows.length) throw new Error('Keine gültigen Wärmebehandlungs-Messwerte gefunden.');
+    const e0=rows[0].elapsedMin;
+    rows.forEach(r=>r.elapsedMin-=e0);
+    const present=channels.filter(ch=>rows.some(r=>Number.isFinite(r[ch])));
+    if(!present.length) throw new Error('Keine Messkanäle mit numerischen Werten gefunden.');
+    return {rows, channels:present, meta:Object.assign({points:rows.length},meta||{})};
+  }
+
+  function parseMNAT(text){
+    const lines=cleanText(text).split('\n');
+    let hi=-1;
+    for(let i=0;i<Math.min(lines.length,120);i++){
+      const s=lines[i]||'';
+      if(/MN\/AT/i.test(s) && /\bdate\b/i.test(s) && /\btime\b/i.test(s) &&
+         /\b1ch\b/i.test(s) && /\b2ch\b/i.test(s) &&
+         /\b3ch\b/i.test(s) && /\b4ch\b/i.test(s)){
+        hi=i; break;
+      }
+    }
+    if(hi<0)return null;
+
+    const raw=[]; let skipped=0, interval='', unit='', fixedWidthRows=0, tokenRows=0;
+    const dateRe=/^(?:\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4})$/;
+    const timeRe=/^\d{1,2}:\d{2}:\d{2}(?:[.,]\d+)?$/;
+
+    for(let i=hi+1;i<lines.length;i++){
+      const line=lines[i];
+      if(!line || !line.trim())continue;
+
+      let date='',time='',intv='',c1='',c2='',c3='',c4='',u='',recordType='';
+      let parsed=false;
+
+      // Standardformat des MN/AT-Loggers: Die komplette Zeile hat feste
+      // Positionen. Dadurch bleiben leere CH2/CH3/CH4-Felder erhalten.
+      // Das funktioniert für 1, 2, 3 oder 4 tatsächlich belegte Kanäle.
+      if(line.length>=63){
+        recordType=line.slice(0,4).trim();
+        date=line.slice(4,14).trim();
+        time=line.slice(15,23).trim();
+        intv=line.slice(24,30).trim();
+        c1=line.slice(30,38).trim();
+        c2=line.slice(38,46).trim();
+        c3=line.slice(46,54).trim();
+        c4=line.slice(54,62).trim();
+        u=line.slice(62).trim();
+        if(/^(?:AT|MN)$/i.test(recordType) && dateRe.test(date) && timeRe.test(time)){
+          parsed=true; fixedWidthRows++;
+        }
+      }
+
+      // Fallback für ältere/kompaktere Exporte, in denen alle vier Kanäle
+      // als echte Whitespace-Tokens vorhanden sind.
+      if(!parsed){
+        const parts=line.trim().split(/\s+/);
+        if(parts.length===9 && /^(?:AT|MN)$/i.test(parts[0]) && dateRe.test(parts[1]) && timeRe.test(parts[2])){
+          [recordType,date,time,intv,c1,c2,c3,c4,u]=parts;
+          parsed=true; tokenRows++;
+        }
+      }
+
+      if(!parsed){skipped++;continue;}
+      const ms=parseDateTime(date,time);
+      if(!Number.isFinite(ms)){skipped++;continue;}
+
+      raw.push({timeMs:ms,CH1:c1,CH2:c2,CH3:c3,CH4:c4});
+      if(!interval && intv)interval=intv;
+      if(!unit && u)unit=u;
+    }
+
+    if(!raw.length)
+      throw new Error('MN/AT-Loggerformat erkannt, aber keine gültigen Messzeilen gefunden.');
+
+    return finalize(raw,['CH1','CH2','CH3','CH4'],{
+      format:'MN/AT Logger TXT',interval,unit,skippedRows:skipped,
+      parser:fixedWidthRows?'Festbreite':'Whitespace',fixedWidthRows,tokenRows
+    });
+  }
+
+  function splitCSV(line, sep){
+    const out=[]; let s='', q=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){
+        if(q && line[i+1]==='"'){s+='"';i++;} else q=!q;
+      } else if(c===sep && !q){out.push(s.trim());s='';} else s+=c;
+    }
+    out.push(s.trim()); return out;
+  }
+
+  function detectDelimiter(lines){
+    const candidates=['\t',';',',']; let best=null;
+    for(const sep of candidates){
+      const counts=lines.slice(0,30).map(l=>splitCSV(l,sep).length).filter(n=>n>1);
+      if(!counts.length)continue;
+      const freq={}; counts.forEach(n=>freq[n]=(freq[n]||0)+1);
+      const mode=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
+      const score=Number(mode[1])*Number(mode[0]);
+      if(!best || score>best.score)best={sep,cols:Number(mode[0]),score};
+    }
+    return best;
+  }
+
+  function channelFromHeader(h){
+    const n=normHeader(h); let m=n.match(/^(?:ch|channel|kanal)([1-9]\d*)$/); if(m)return 'CH'+m[1];
+    m=n.match(/^([1-9]\d*)ch$/); if(m)return 'CH'+m[1];
+    return null;
+  }
+
+  function parseDelimited(text){
+    const lines=cleanText(text).split('\n').filter(x=>x.trim());
+    if(lines.length<2)throw new Error('Zu wenig Datenzeilen.');
+    const det=detectDelimiter(lines);
+    if(!det)throw new Error('Dateiformat nicht erkannt. Unterstützt werden TXT, CSV und TSV.');
+    let headerIndex=0;
+    for(let i=0;i<Math.min(lines.length,40);i++){
+      const hs=splitCSV(lines[i],det.sep);
+      const chs=hs.map(channelFromHeader).filter(Boolean);
+      if(chs.length){headerIndex=i;break;}
+    }
+    const headers=splitCSV(lines[headerIndex],det.sep);
+    const normalized=headers.map(normHeader);
+    const channelCols=[];
+    headers.forEach((h,i)=>{const ch=channelFromHeader(h); if(ch)channelCols.push([i,ch]);});
+    if(!channelCols.length)throw new Error('Keine Kanalspalten erkannt (z. B. CH1, CH2 oder 1ch, 2ch).');
+
+    const find=(tests)=>normalized.findIndex(h=>tests.some(t=>typeof t==='string'?h===t:t.test(h)));
+    const dateI=find(['date','datum']);
+    const timeI=find(['time','uhrzeit']);
+    const tsI=find(['timestamp','datetime','zeitstempel']);
+    const elapsedMinI=find(['elapsedmin','elapsedminutes','zeitmin','minuten','minutes']);
+    const elapsedSecI=find(['elapsedsec','elapsedseconds','zeitsec','sekunden','seconds']);
+    const elapsedHourI=find(['elapsedh','elapsedhours','zeith','stunden','hours']);
+    const genericTimeI=find([/^time(min|minutes)?$/, /^zeit(min|minutes)?$/]);
+
+    const raw=[]; let skipped=0;
+    for(let li=headerIndex+1;li<lines.length;li++){
+      const p=splitCSV(lines[li],det.sep);
+      if(p.length<Math.max(...channelCols.map(x=>x[0]))+1){skipped++;continue;}
+      const r={};
+      let ms=null, elapsed=null;
+      if(dateI>=0 && timeI>=0)ms=parseDateTime(p[dateI],p[timeI]);
+      else if(tsI>=0){
+        const v=String(p[tsI]||'').trim();
+        const parts=v.split(/[ T]/); if(parts.length>=2)ms=parseDateTime(parts[0],parts[1]);
+      }
+      if(elapsedMinI>=0)elapsed=num(p[elapsedMinI]);
+      else if(elapsedSecI>=0){const v=num(p[elapsedSecI]); elapsed=v===null?null:v/60;}
+      else if(elapsedHourI>=0){const v=num(p[elapsedHourI]); elapsed=v===null?null:v*60;}
+      else if(genericTimeI>=0 && !Number.isFinite(ms))elapsed=num(p[genericTimeI]);
+      if(!Number.isFinite(ms) && !Number.isFinite(elapsed)){
+        // Fallback: row number as sample index if an interval can be inferred later is unsafe; skip.
+        skipped++;continue;
+      }
+      if(Number.isFinite(ms))r.timeMs=ms; else r.elapsedMin=elapsed;
+      for(const [idx,ch] of channelCols)r[ch]=p[idx];
+      raw.push(r);
+    }
+    if(!raw.length)throw new Error('Keine gültigen Messzeilen mit Zeitinformation gefunden.');
+    const sepName=det.sep==='\t'?'Tab':det.sep===';'?'Semikolon':'Komma';
+    return finalize(raw,[...new Set(channelCols.map(x=>x[1]))],{format:`Texttabelle (${sepName})`,separator:sepName,skippedRows:skipped});
+  }
+
+  function parseText(text, filename){
+    const cleaned=cleanText(text);
+    return parseMNAT(cleaned) || parseDelimited(cleaned);
+  }
+
+  function minMaxDownsample(rows, channels, maxPoints){
+    maxPoints=Math.max(200, Number(maxPoints)||1800);
+    if(rows.length<=maxPoints)return rows.slice();
+    const bucket=Math.max(1,Math.ceil(rows.length/Math.max(1,Math.floor(maxPoints/(channels.length*2+2)))));
+    const keep=new Set([0,rows.length-1]);
+    for(let start=0;start<rows.length;start+=bucket){
+      const end=Math.min(rows.length,start+bucket); keep.add(start); keep.add(end-1);
+      for(const ch of channels){
+        let minI=-1,maxI=-1,min=Infinity,max=-Infinity;
+        for(let i=start;i<end;i++){
+          const v=rows[i][ch]; if(!Number.isFinite(v))continue;
+          if(v<min){min=v;minI=i;} if(v>max){max=v;maxI=i;}
+        }
+        if(minI>=0)keep.add(minI); if(maxI>=0)keep.add(maxI);
+      }
+    }
+    return [...keep].sort((a,b)=>a-b).map(i=>rows[i]);
+  }
+  root.WBParser={decodeArrayBuffer,parseText,parseMNAT,parseDelimited,minMaxDownsample,num};
+})(typeof globalThis!=='undefined'?globalThis:window);
+
+
+const i=document.getElementById('f'),o=document.getElementById('o');i.addEventListener('change',async()=>{let a=[];for(const f of i.files){try{const b=await f.arrayBuffer();const t=WBParser.decodeArrayBuffer(b);const p=WBParser.parseText(t,f.name);a.push(`${f.name}: ${p.rows.length} Punkte | ${p.channels.join(', ')} | ${p.meta.format}`);}catch(e){a.push(`${f.name}: FEHLER: ${e.message}`)}}o.textContent=a.join('\n');});</script></body></html>

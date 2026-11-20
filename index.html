@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f7fa">
+<meta name="application-name" content="Becker WB Viewer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="WB Viewer">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Becker WB Viewer V1.5</title>
+<style>
+:root{
+  --bg:#f5f7fa;--panel:#fff;--text:#17202a;--muted:#6b7785;--border:#d9e0e7;
+  --accent:#2b6cb0;--accent-soft:#eaf2fb;--ok:#227a4b;--warn:#9a6700;--danger:#b8323c;
+  --shadow:0 1px 3px rgba(20,30,45,.06)
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;color:var(--text);background:var(--bg)}
+button,input,select{font:inherit}
+button{min-height:40px;padding:8px 14px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--text);cursor:pointer}
+button:hover{border-color:#aeb9c4}
+button.active-pick{background:var(--accent-soft);border-color:var(--accent);color:#174d83;font-weight:700}
+.primary{background:var(--accent);border-color:var(--accent);color:white;font-weight:650}
+.ghost{background:transparent}
+.topbar{display:flex;gap:20px;align-items:center;justify-content:space-between;padding:18px clamp(16px,3vw,34px);background:var(--panel);border-bottom:1px solid var(--border)}
+h1{font-size:21px;margin:0 0 3px;letter-spacing:.01em}
+h1 span{font-size:11px;padding:4px 7px;border:1px solid var(--border);border-radius:8px;vertical-align:middle;background:#f4f6f8}
+h1+p{margin:0;color:var(--muted);font-size:13px}
+main{width:min(1500px,100%);margin:0 auto;padding:20px clamp(14px,3vw,30px) 28px}
+.dropzone{min-height:220px;border:2px dashed #bac6d1;border-radius:16px;background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:26px;outline:none}
+.dropzone.drag{border-color:var(--accent);background:var(--accent-soft)}
+.dropzone span{color:var(--muted)}
+.drop-icon{font-size:44px;line-height:1;color:var(--accent)}
+.hidden{display:none!important}
+.filebar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:12px}
+.muted{color:var(--muted);font-size:12px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow)}
+.setup-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:12px}
+.panel{padding:14px 16px}
+.panel-head{margin-bottom:12px}
+.panel-head h2,.chart-head h2{font-size:15px;margin:0 0 3px}
+.panel-head p{font-size:12px;color:var(--muted);margin:0}
+.inline-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.channel-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.channel-row{display:grid;grid-template-columns:auto 62px minmax(100px,1fr);align-items:center;gap:8px;padding:7px 8px;border:1px solid #e8edf1;border-radius:9px;background:#fbfcfd}
+.channel-row .raw{font-size:12px;font-weight:700;color:#52606d}
+.channel-row input[type=text]{width:100%;height:36px;border:1px solid var(--border);border-radius:8px;padding:7px 9px;background:#fff}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.form-grid label,.hold-controls label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:650;color:#44505c;min-width:0}
+.form-grid .full{grid-column:1/-1;flex-direction:row;align-items:center}
+input[type=number],input[type=text],select{height:40px;border:1px solid var(--border);border-radius:8px;padding:7px 9px;background:#fff;color:var(--text);min-width:0}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+.checkline{display:flex!important;flex-direction:row!important;gap:7px;align-items:center!important;font-weight:500!important}
+.input-unit{display:grid;grid-template-columns:1fr auto;align-items:center;gap:7px}
+.input-unit b{font-size:12px;font-weight:600;color:var(--muted)}
+.band-panel,.hold-panel{margin-top:12px}
+.bands{display:flex;flex-direction:column;gap:7px}
+.band-row{display:grid;grid-template-columns:auto minmax(140px,1.25fr) minmax(110px,.75fr) minmax(100px,.65fr) auto;align-items:end;gap:8px;padding:8px;border:1px solid #e8edf1;border-radius:9px;background:#fbfcfd}
+.band-row label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
+.band-row .band-visible{align-self:center}
+.band-row .remove-band{min-width:40px;padding:7px 10px;color:var(--danger)}
+.hold-controls{display:grid;grid-template-columns:auto 135px 135px minmax(320px,1fr);gap:10px 12px;align-items:end}
+.hold-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.pick-hint{margin-top:10px;padding:9px 11px;border-radius:8px;background:var(--accent-soft);color:#174d83;font-size:12px;border:1px solid #bdd3ea}
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:12px 0}
+.stat{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:10px 12px}
+.stat .k{font-size:11px;color:var(--muted);margin-bottom:3px}
+.stat .v{font-size:17px;font-weight:700}
+.chart-card{padding:15px}
+.chart-head{display:flex;gap:15px;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.chart-wrap{position:relative;width:100%;height:520px;min-height:320px;background:#fff;border:1px solid #edf0f3;border-radius:9px;overflow:hidden}
+.chart-wrap.pick-mode{cursor:crosshair;outline:2px solid #b8d4ef;outline-offset:-2px}
+#chart{width:100%;height:100%;touch-action:pan-y}
+.legend{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;padding:10px 0 0;font-size:12px}
+.legend-item{display:flex;align-items:center;gap:6px}
+.swatch{width:18px;height:3px;border-radius:2px}
+.band-swatch{width:18px;height:8px;border-radius:2px;border:1px solid rgba(0,0,0,.08)}
+.tooltip{position:absolute;pointer-events:none;z-index:5;background:rgba(24,31,38,.94);color:#fff;padding:8px 10px;border-radius:8px;font-size:12px;line-height:1.45;box-shadow:0 5px 18px rgba(0,0,0,.18);max-width:280px}
+.notice{margin-top:10px;padding:10px 12px;border:1px solid #e6c36a;border-radius:9px;background:#fff7df;color:#745300;font-size:13px}
+footer{text-align:center;color:var(--muted);font-size:11px;padding:12px 20px 22px}
+@media(max-width:1000px){
+  .setup-grid{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .hold-controls{grid-template-columns:1fr 1fr 1fr}
+  .hold-actions{grid-column:1/-1;justify-content:flex-start}
+}
+@media(max-width:760px){
+  .band-row{grid-template-columns:auto 1fr 1fr}
+  .band-row label:nth-of-type(1){grid-column:2/-1}
+  .band-row .remove-band{grid-column:3}
+  .channel-list{grid-template-columns:1fr}
+  .chart-wrap{height:430px}
+  .filebar,.chart-head{align-items:stretch;flex-direction:column}
+  .actions{justify-content:flex-start}
+}
+@media(max-width:560px){
+  .topbar{align-items:flex-start}.topbar .ghost{display:none}
+  main{padding-top:12px}
+  .form-grid{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  .hold-controls{grid-template-columns:1fr 1fr}
+  .hold-controls>.checkline,.hold-actions{grid-column:1/-1}
+  .chart-wrap{height:360px}
+  .actions button{flex:1 1 42%}
+}
+@media print{
+  .topbar button,.dropzone,.setup-grid,.band-panel,.hold-panel,.actions,.filebar button,footer,.notice{display:none!important}
+  body{background:#fff}.topbar{border:0;padding:0 0 10px}.topbar h1{font-size:18px}
+  main{padding:0;max-width:none}.card{border:0;box-shadow:none}.chart-card{padding:0}
+  .chart-wrap{height:620px;border:0}.stats{margin:8px 0}.stat{border:1px solid #ddd}.legend{padding-top:6px}
+}
+
+</style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div>
+      <h1>BECKER WB VIEWER <span>V1.5</span></h1>
+      <p>Wärmebehandlungsdaten einlesen · darstellen · markieren · exportieren</p>
+    </div>
+    <button id="resetBtn" class="ghost" type="button">Zurücksetzen</button>
+  </header>
+
+  <main>
+    <section id="dropZone" class="dropzone" tabindex="0" aria-label="Wärmebehandlungsdatei auswählen oder hier ablegen">
+      <input id="fileInput" type="file" accept=".txt,.csv,.tsv,text/plain,text/csv" hidden>
+      <div class="drop-icon">↥</div>
+      <div><strong>WB-Datei auswählen</strong><br><span>oder TXT / CSV / TSV hier ablegen</span></div>
+      <button id="pickBtn" type="button" class="primary">Datei auswählen</button>
+    </section>
+
+    <section id="workspace" class="hidden">
+      <div class="filebar">
+        <div><strong id="fileName">–</strong><div id="fileMeta" class="muted">–</div></div>
+        <button id="changeBtn" type="button" class="ghost">Andere Datei</button>
+      </div>
+
+      <section class="setup-grid">
+        <div class="card panel">
+          <div class="panel-head">
+            <div>
+              <h2>Kanäle</h2>
+              <p>Messkanäle ein-/ausblenden und frei benennen.</p>
+            </div>
+          </div>
+          <div id="channelChecks" class="channel-list"></div>
+        </div>
+
+        <div class="card panel">
+          <div class="panel-head">
+            <div>
+              <h2>Diagramm</h2>
+              <p>Startpunkt, Zeitachse und Y-Skalierung.</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label class="checkline full"><input id="startEnabled" type="checkbox"> Diagramm ab Starttemperatur</label>
+            <label><span>Starttemperatur</span><div class="input-unit"><input id="startTemp" type="number" step="0.1" value="400"><b>°C</b></div></label>
+            <label><span>Zeitachse</span><select id="timeUnit"><option value="min">Minuten</option><option value="h">Stunden</option></select></label>
+            <label><span>Y-Min optional</span><input id="yMin" type="number" step="0.1" placeholder="Automatisch"></label>
+            <label><span>Y-Max optional</span><input id="yMax" type="number" step="0.1" placeholder="Automatisch"></label>
+          </div>
+        </div>
+      </section>
+
+      <section class="card panel band-panel">
+        <div class="panel-head inline-head">
+          <div>
+            <h2>Solltemperaturbereiche</h2>
+            <p>Sollwert ± Toleranz wird als farbiges Band im Diagramm dargestellt.</p>
+          </div>
+          <button id="addBandBtn" type="button">+ Bereich</button>
+        </div>
+        <div id="bands" class="bands"></div>
+      </section>
+
+      <section class="card panel hold-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Haltezeit markieren</h2>
+            <p>Zeiten beziehen sich auf die aktuell dargestellte Zeitachse nach einem optionalen Starttemperatur-Schnitt.</p>
+          </div>
+        </div>
+        <div class="hold-controls">
+          <label class="checkline"><input id="holdEnabled" type="checkbox"> Haltebereich anzeigen</label>
+          <label><span>Start [min]</span><input id="holdStart" type="number" min="0" step="0.1" placeholder="z. B. 45"></label>
+          <label><span>Ende [min]</span><input id="holdEnd" type="number" min="0" step="0.1" placeholder="z. B. 165"></label>
+          <div class="hold-actions">
+            <button id="pickHoldStart" type="button">Start im Diagramm setzen</button>
+            <button id="pickHoldEnd" type="button">Ende im Diagramm setzen</button>
+            <button id="clearHold" type="button" class="ghost">Löschen</button>
+          </div>
+        </div>
+        <div id="pickHint" class="pick-hint hidden" role="status"></div>
+      </section>
+
+      <div id="stats" class="stats"></div>
+
+      <section class="chart-card card">
+        <div class="chart-head">
+          <div><h2>Temperaturverlauf</h2><div id="rangeInfo" class="muted"></div></div>
+          <div class="actions">
+            <button id="pngBtn" type="button">PNG</button>
+            <button id="svgBtn" type="button">SVG</button>
+            <button id="csvBtn" type="button">CSV</button>
+            <button id="printBtn" type="button">Drucken / PDF</button>
+          </div>
+        </div>
+        <div id="chartWrap" class="chart-wrap">
+          <svg id="chart" role="img" aria-label="Temperaturverlauf"></svg>
+          <div id="tooltip" class="tooltip hidden"></div>
+        </div>
+        <div id="legend" class="legend"></div>
+      </section>
+
+      <div id="notice" class="notice hidden" role="status"></div>
+    </section>
+  </main>
+
+  <footer>Alle Messdaten werden ausschließlich lokal im Browser verarbeitet. Es findet kein Upload statt.</footer>
+
+<script>
+(function(root){
+  'use strict';
+
+  function cleanText(text){
+    return String(text || '').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  }
+
+  function decodeArrayBuffer(buffer){
+    const bytes = new Uint8Array(buffer);
+    if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) return new TextDecoder('utf-16le').decode(bytes);
+    if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) return new TextDecoder('utf-16be').decode(bytes);
+    const sample = bytes.slice(0, Math.min(bytes.length, 3000));
+    let evenNull=0, oddNull=0;
+    for(let i=0;i<sample.length;i++) if(sample[i]===0) (i%2?oddNull++:evenNull++);
+    if(oddNull > sample.length*0.12) return new TextDecoder('utf-16le').decode(bytes);
+    if(evenNull > sample.length*0.12) return new TextDecoder('utf-16be').decode(bytes);
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  function num(v){
+    if(v === null || v === undefined) return null;
+    let s = String(v).trim().replace(/\s/g,'');
+    if(!s || /^[-–—]$/.test(s)) return null;
+    if(s.includes(',') && !s.includes('.')) s=s.replace(',','.');
+    else if(s.includes(',') && s.includes('.')) {
+      if(s.lastIndexOf(',') > s.lastIndexOf('.')) s=s.replace(/\./g,'').replace(',','.');
+      else s=s.replace(/,/g,'');
+    }
+    const n=Number(s);
+    return Number.isFinite(n)?n:null;
+  }
+
+  function normHeader(v){
+    return String(v||'').trim().toLowerCase()
+      .replace(/[°º]/g,'').replace(/[ä]/g,'a').replace(/[ö]/g,'o').replace(/[ü]/g,'u')
+      .replace(/[^a-z0-9]+/g,'');
+  }
+
+  function parseDateTime(dateText, timeText){
+    let d=String(dateText||'').trim(), t=String(timeText||'').trim().replace(',','.');
+    let m=d.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if(!m) {
+      const g=d.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/);
+      if(g){ let y=Number(g[3]); if(y<100)y+=2000; m=[g[0],String(y),g[2],g[1]]; }
+    }
+    const tm=t.match(/^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/);
+    if(!m || !tm) return null;
+    const ms = tm[4] ? Math.round(Number('0.'+tm[4])*1000) : 0;
+    return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]), Number(tm[1]), Number(tm[2]), Number(tm[3]||0), ms).getTime();
+  }
+
+  function fmtTimestamp(ms){
+    if(!Number.isFinite(ms)) return '';
+    const d=new Date(ms), p=n=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  function finalize(rawRows, channels, meta){
+    const rows=[];
+    let t0=null;
+    for(const r of rawRows){
+      let elapsed = Number.isFinite(r.elapsedMin) ? r.elapsedMin : null;
+      if(Number.isFinite(r.timeMs)) {
+        if(t0===null)t0=r.timeMs;
+        elapsed=(r.timeMs-t0)/60000;
+      }
+      if(!Number.isFinite(elapsed)) continue;
+      const out={elapsedMin:elapsed, timestamp:Number.isFinite(r.timeMs)?fmtTimestamp(r.timeMs):(r.timestamp||'')};
+      let any=false;
+      for(const ch of channels){ const v=num(r[ch]); out[ch]=v; if(v!==null)any=true; }
+      if(any) rows.push(out);
+    }
+    rows.sort((a,b)=>a.elapsedMin-b.elapsedMin);
+    if(!rows.length) throw new Error('Keine gültigen Wärmebehandlungs-Messwerte gefunden.');
+    const e0=rows[0].elapsedMin;
+    rows.forEach(r=>r.elapsedMin-=e0);
+    const present=channels.filter(ch=>rows.some(r=>Number.isFinite(r[ch])));
+    if(!present.length) throw new Error('Keine Messkanäle mit numerischen Werten gefunden.');
+    return {rows, channels:present, meta:Object.assign({points:rows.length},meta||{})};
+  }
+
+  function parseMNAT(text){
+    const lines=cleanText(text).split('\n');
+    let hi=-1;
+    for(let i=0;i<Math.min(lines.length,120);i++){
+      const s=lines[i]||'';
+      if(/MN\/AT/i.test(s) && /\bdate\b/i.test(s) && /\btime\b/i.test(s) &&
+         /\b1ch\b/i.test(s) && /\b2ch\b/i.test(s) &&
+         /\b3ch\b/i.test(s) && /\b4ch\b/i.test(s)){
+        hi=i; break;
+      }
+    }
+    if(hi<0)return null;
+
+    const raw=[]; let skipped=0, interval='', unit='', fixedWidthRows=0, tokenRows=0;
+    const dateRe=/^(?:\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4})$/;
+    const timeRe=/^\d{1,2}:\d{2}:\d{2}(?:[.,]\d+)?$/;
+
+    for(let i=hi+1;i<lines.length;i++){
+      const line=lines[i];
+      if(!line || !line.trim())continue;
+
+      let date='',time='',intv='',c1='',c2='',c3='',c4='',u='',recordType='';
+      let parsed=false;
+
+      // Standardformat des MN/AT-Loggers: Die komplette Zeile hat feste
+      // Positionen. Dadurch bleiben leere CH2/CH3/CH4-Felder erhalten.
+      // Das funktioniert für 1, 2, 3 oder 4 tatsächlich belegte Kanäle.
+      if(line.length>=63){
+        recordType=line.slice(0,4).trim();
+        date=line.slice(4,14).trim();
+        time=line.slice(15,23).trim();
+        intv=line.slice(24,30).trim();
+        c1=line.slice(30,38).trim();
+        c2=line.slice(38,46).trim();
+        c3=line.slice(46,54).trim();
+        c4=line.slice(54,62).trim();
+        u=line.slice(62).trim();
+        if(/^(?:AT|MN)$/i.test(recordType) && dateRe.test(date) && timeRe.test(time)){
+          parsed=true; fixedWidthRows++;
+        }
+      }
+
+      // Fallback für ältere/kompaktere Exporte, in denen alle vier Kanäle
+      // als echte Whitespace-Tokens vorhanden sind.
+      if(!parsed){
+        const parts=line.trim().split(/\s+/);
+        if(parts.length===9 && /^(?:AT|MN)$/i.test(parts[0]) && dateRe.test(parts[1]) && timeRe.test(parts[2])){
+          [recordType,date,time,intv,c1,c2,c3,c4,u]=parts;
+          parsed=true; tokenRows++;
+        }
+      }
+
+      if(!parsed){skipped++;continue;}
+      const ms=parseDateTime(date,time);
+      if(!Number.isFinite(ms)){skipped++;continue;}
+
+      raw.push({timeMs:ms,CH1:c1,CH2:c2,CH3:c3,CH4:c4});
+      if(!interval && intv)interval=intv;
+      if(!unit && u)unit=u;
+    }
+
+    if(!raw.length)
+      throw new Error('MN/AT-Loggerformat erkannt, aber keine gültigen Messzeilen gefunden.');
+
+    return finalize(raw,['CH1','CH2','CH3','CH4'],{
+      format:'MN/AT Logger TXT',interval,unit,skippedRows:skipped,
+      parser:fixedWidthRows?'Festbreite':'Whitespace',fixedWidthRows,tokenRows
+    });
+  }
+
+  function splitCSV(line, sep){
+    const out=[]; let s='', q=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){
+        if(q && line[i+1]==='"'){s+='"';i++;} else q=!q;
+      } else if(c===sep && !q){out.push(s.trim());s='';} else s+=c;
+    }
+    out.push(s.trim()); return out;
+  }
+
+  function detectDelimiter(lines){
+    const candidates=['\t',';',',']; let best=null;
+    for(const sep of candidates){
+      const counts=lines.slice(0,30).map(l=>splitCSV(l,sep).length).filter(n=>n>1);
+      if(!counts.length)continue;
+      const freq={}; counts.forEach(n=>freq[n]=(freq[n]||0)+1);
+      const mode=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
+      const score=Number(mode[1])*Number(mode[0]);
+      if(!best || score>best.score)best={sep,cols:Number(mode[0]),score};
+    }
+    return best;
+  }
+
+  function channelFromHeader(h){
+    const n=normHeader(h); let m=n.match(/^(?:ch|channel|kanal)([1-9]\d*)$/); if(m)return 'CH'+m[1];
+    m=n.match(/^([1-9]\d*)ch$/); if(m)return 'CH'+m[1];
+    return null;
+  }
+
+  function parseDelimited(text){
+    const lines=cleanText(text).split('\n').filter(x=>x.trim());
+    if(lines.length<2)throw new Error('Zu wenig Datenzeilen.');
+    const det=detectDelimiter(lines);
+    if(!det)throw new Error('Dateiformat nicht erkannt. Unterstützt werden TXT, CSV und TSV.');
+    let headerIndex=0;
+    for(let i=0;i<Math.min(lines.length,40);i++){
+      const hs=splitCSV(lines[i],det.sep);
+      const chs=hs.map(channelFromHeader).filter(Boolean);
+      if(chs.length){headerIndex=i;break;}
+    }
+    const headers=splitCSV(lines[headerIndex],det.sep);
+    const normalized=headers.map(normHeader);
+    const channelCols=[];
+    headers.forEach((h,i)=>{const ch=channelFromHeader(h); if(ch)channelCols.push([i,ch]);});
+    if(!channelCols.length)throw new Error('Keine Kanalspalten erkannt (z. B. CH1, CH2 oder 1ch, 2ch).');
+
+    const find=(tests)=>normalized.findIndex(h=>tests.some(t=>typeof t==='string'?h===t:t.test(h)));
+    const dateI=find(['date','datum']);
+    const timeI=find(['time','uhrzeit']);
+    const tsI=find(['timestamp','datetime','zeitstempel']);
+    const elapsedMinI=find(['elapsedmin','elapsedminutes','zeitmin','minuten','minutes']);
+    const elapsedSecI=find(['elapsedsec','elapsedseconds','zeitsec','sekunden','seconds']);
+    const elapsedHourI=find(['elapsedh','elapsedhours','zeith','stunden','hours']);
+    const genericTimeI=find([/^time(min|minutes)?$/, /^zeit(min|minutes)?$/]);
+
+    const raw=[]; let skipped=0;
+    for(let li=headerIndex+1;li<lines.length;li++){
+      const p=splitCSV(lines[li],det.sep);
+      if(p.length<Math.max(...channelCols.map(x=>x[0]))+1){skipped++;continue;}
+      const r={};
+      let ms=null, elapsed=null;
+      if(dateI>=0 && timeI>=0)ms=parseDateTime(p[dateI],p[timeI]);
+      else if(tsI>=0){
+        const v=String(p[tsI]||'').trim();
+        const parts=v.split(/[ T]/); if(parts.length>=2)ms=parseDateTime(parts[0],parts[1]);
+      }
+      if(elapsedMinI>=0)elapsed=num(p[elapsedMinI]);
+      else if(elapsedSecI>=0){const v=num(p[elapsedSecI]); elapsed=v===null?null:v/60;}
+      else if(elapsedHourI>=0){const v=num(p[elapsedHourI]); elapsed=v===null?null:v*60;}
+      else if(genericTimeI>=0 && !Number.isFinite(ms))elapsed=num(p[genericTimeI]);
+      if(!Number.isFinite(ms) && !Number.isFinite(elapsed)){
+        // Fallback: row number as sample index if an interval can be inferred later is unsafe; skip.
+        skipped++;continue;
+      }
+      if(Number.isFinite(ms))r.timeMs=ms; else r.elapsedMin=elapsed;
+      for(const [idx,ch] of channelCols)r[ch]=p[idx];
+      raw.push(r);
+    }
+    if(!raw.length)throw new Error('Keine gültigen Messzeilen mit Zeitinformation gefunden.');
+    const sepName=det.sep==='\t'?'Tab':det.sep===';'?'Semikolon':'Komma';
+    return finalize(raw,[...new Set(channelCols.map(x=>x[1]))],{format:`Texttabelle (${sepName})`,separator:sepName,skippedRows:skipped});
+  }
+
+  function parseText(text, filename){
+    const cleaned=cleanText(text);
+    return parseMNAT(cleaned) || parseDelimited(cleaned);
+  }
+
+  function minMaxDownsample(rows, channels, maxPoints){
+    maxPoints=Math.max(200, Number(maxPoints)||1800);
+    if(rows.length<=maxPoints)return rows.slice();
+    const bucket=Math.max(1,Math.ceil(rows.length/Math.max(1,Math.floor(maxPoints/(channels.length*2+2)))));
+    const keep=new Set([0,rows.length-1]);
+    for(let start=0;start<rows.length;start+=bucket){
+      const end=Math.min(rows.length,start+bucket); keep.add(start); keep.add(end-1);
+      for(const ch of channels){
+        let minI=-1,maxI=-1,min=Infinity,max=-Infinity;
+        for(let i=start;i<end;i++){
+          const v=rows[i][ch]; if(!Number.isFinite(v))continue;
+          if(v<min){min=v;minI=i;} if(v>max){max=v;maxI=i;}
+        }
+        if(minI>=0)keep.add(minI); if(maxI>=0)keep.add(maxI);
+      }
+    }
+    return [...keep].sort((a,b)=>a-b).map(i=>rows[i]);
+  }
+  root.WBParser={decodeArrayBuffer,parseText,parseMNAT,parseDelimited,minMaxDownsample,num};
+})(typeof globalThis!=='undefined'?globalThis:window);
+
+</script>
+<script>
+(function(){
+'use strict';
+
+const $=id=>document.getElementById(id);
+const els={
+  drop:$('dropZone'),file:$('fileInput'),pick:$('pickBtn'),workspace:$('workspace'),
+  fileName:$('fileName'),fileMeta:$('fileMeta'),channelChecks:$('channelChecks'),
+  startEnabled:$('startEnabled'),startTemp:$('startTemp'),timeUnit:$('timeUnit'),
+  yMin:$('yMin'),yMax:$('yMax'),stats:$('stats'),chart:$('chart'),chartWrap:$('chartWrap'),
+  legend:$('legend'),tooltip:$('tooltip'),rangeInfo:$('rangeInfo'),notice:$('notice'),
+  bands:$('bands'),addBand:$('addBandBtn'),holdEnabled:$('holdEnabled'),
+  holdStart:$('holdStart'),holdEnd:$('holdEnd'),pickHoldStart:$('pickHoldStart'),
+  pickHoldEnd:$('pickHoldEnd'),clearHold:$('clearHold'),pickHint:$('pickHint')
+};
+
+const colors=['#2563eb','#16a34a','#dc2626','#9333ea','#ea580c','#0891b2','#4f46e5','#65a30d'];
+const bandColors=[
+  {fill:'#dbeafe',stroke:'#60a5fa'},
+  {fill:'#dcfce7',stroke:'#4ade80'},
+  {fill:'#fef3c7',stroke:'#fbbf24'},
+  {fill:'#f3e8ff',stroke:'#c084fc'},
+  {fill:'#ffe4e6',stroke:'#fb7185'}
+];
+
+let data=null,currentFile=null,renderRows=[],visibleChannels=[],pickMode=null,bandSeq=0;
+let aliases={};
+
+function showNotice(msg,kind='warn'){
+  if(!msg){els.notice.classList.add('hidden');return;}
+  els.notice.textContent=msg; els.notice.classList.remove('hidden');
+  els.notice.style.borderColor=kind==='error'?'#e2a1a7':'#e6c36a';
+  els.notice.style.background=kind==='error'?'#fff0f1':'#fff7df';
+  els.notice.style.color=kind==='error'?'#8c2430':'#745300';
+}
+function fmt(n,d=1){return Number.isFinite(n)?n.toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d}):'–'}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function numValue(input){
+  if(input.value.trim()==='') return null;
+  const n=Number(String(input.value).replace(',','.'));
+  return Number.isFinite(n)?n:null;
+}
+function channelLabel(ch){return (aliases[ch]||ch).trim()||ch;}
+
+function readFileBuffer(file){
+  if(file && typeof file.arrayBuffer==='function'){
+    return file.arrayBuffer().catch(()=>new Promise((resolve,reject)=>{
+      const fr=new FileReader();
+      fr.onload=()=>resolve(fr.result);
+      fr.onerror=()=>reject(fr.error||new Error('Datei konnte nicht gelesen werden.'));
+      fr.readAsArrayBuffer(file);
+    }));
+  }
+  return new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onload=()=>resolve(fr.result);
+    fr.onerror=()=>reject(fr.error||new Error('Datei konnte nicht gelesen werden.'));
+    fr.readAsArrayBuffer(file);
+  });
+}
+
+async function loadFile(file){
+  showNotice('');
+  try{
+    if(!file)throw new Error('Keine Datei ausgewählt.');
+    const buffer=await readFileBuffer(file);
+    if(!buffer || !buffer.byteLength)throw new Error('Die Datei ist leer oder konnte nicht gelesen werden.');
+
+    const text=WBParser.decodeArrayBuffer(buffer);
+    const parsed=WBParser.parseText(text,file.name);
+
+    data=parsed; currentFile=file; aliases={};
+    parsed.channels.forEach(ch=>aliases[ch]=ch);
+    els.fileName.textContent=file.name;
+    const dur=parsed.rows.length?parsed.rows[parsed.rows.length-1].elapsedMin:0;
+    els.fileMeta.textContent=`${parsed.meta.format || 'Text'} · ${parsed.rows.length.toLocaleString('de-DE')} Punkte · ${fmt(dur/60,2)} h${parsed.meta.interval?' · '+parsed.meta.interval:''}${parsed.meta.unit?' · '+parsed.meta.unit:''}`;
+    buildChannels();
+    els.drop.classList.add('hidden'); els.workspace.classList.remove('hidden');
+    render();
+
+    const info=[];
+    if(parsed.channels.length<4 && /MN\/AT/i.test(parsed.meta.format||''))
+      info.push(`Aktive Kanäle: ${parsed.channels.join(', ')}.`);
+    if(parsed.meta.skippedRows)
+      info.push(`${parsed.meta.skippedRows} Zeile(n) wurden übersprungen.`);
+    showNotice(info.join(' '));
+  }catch(err){
+    console.error(err);
+    showNotice(`Datei konnte nicht geladen werden: ${err && err.message ? err.message : String(err)}`,'error');
+  }
+}
+
+function buildChannels(){
+  els.channelChecks.innerHTML='';
+  data.channels.forEach(ch=>{
+    const row=document.createElement('div'); row.className='channel-row';
+    const check=document.createElement('input'); check.type='checkbox'; check.checked=true; check.value=ch; check.setAttribute('aria-label',`${ch} anzeigen`);
+    const raw=document.createElement('span'); raw.className='raw'; raw.textContent=ch;
+    const name=document.createElement('input'); name.type='text'; name.value=aliases[ch]; name.placeholder=`Name für ${ch}`; name.setAttribute('aria-label',`${ch} benennen`);
+    check.addEventListener('change',render);
+    name.addEventListener('input',()=>{aliases[ch]=name.value||ch;render();});
+    row.append(check,raw,name); els.channelChecks.appendChild(row);
+  });
+}
+
+function selectedChannels(){
+  return [...els.channelChecks.querySelectorAll('.channel-row input[type=checkbox]:checked')].map(x=>x.value);
+}
+
+function addBand(config={}){
+  if(els.bands.children.length>=5){showNotice('Maximal 5 Solltemperaturbereiche sind vorgesehen.');return;}
+  bandSeq++;
+  const row=document.createElement('div'); row.className='band-row'; row.dataset.bandId=String(bandSeq);
+  row.innerHTML=`
+    <input class="band-visible" type="checkbox" checked aria-label="Sollbereich anzeigen">
+    <label>Name<input class="band-name" type="text" value="${escapeHtml(config.name||`Sollbereich ${bandSeq}`)}"></label>
+    <label>Soll [°C]<input class="band-target" type="number" step="0.1" value="${Number.isFinite(config.target)?config.target:''}" placeholder="z. B. 520"></label>
+    <label>± [°C]<input class="band-tol" type="number" min="0" step="0.1" value="${Number.isFinite(config.tol)?config.tol:''}" placeholder="z. B. 5"></label>
+    <button class="remove-band ghost" type="button" aria-label="Sollbereich entfernen">×</button>`;
+  row.querySelectorAll('input').forEach(inp=>inp.addEventListener(inp.type==='checkbox'?'change':'input',render));
+  row.querySelector('.remove-band').addEventListener('click',()=>{row.remove();render();});
+  els.bands.appendChild(row);
+}
+
+function getBands(){
+  return [...els.bands.querySelectorAll('.band-row')].map((row,i)=>{
+    const target=numValue(row.querySelector('.band-target'));
+    const tol=numValue(row.querySelector('.band-tol'));
+    return {
+      visible:row.querySelector('.band-visible').checked,
+      name:row.querySelector('.band-name').value.trim()||`Sollbereich ${i+1}`,
+      target,tol:tol===null?null:Math.abs(tol), color:bandColors[i%bandColors.length]
+    };
+  }).filter(b=>b.visible && Number.isFinite(b.target) && Number.isFinite(b.tol));
+}
+
+function holdConfig(){
+  const start=numValue(els.holdStart), end=numValue(els.holdEnd);
+  return {
+    enabled:els.holdEnabled.checked && Number.isFinite(start) && Number.isFinite(end) && end>start,
+    start,end
+  };
+}
+
+function viewRows(){
+  if(!data)return [];
+  visibleChannels=selectedChannels();
+  let rows=data.rows, startIndex=0;
+  if(els.startEnabled.checked && visibleChannels.length){
+    const t=Number(els.startTemp.value);
+    if(Number.isFinite(t)){
+      const idx=rows.findIndex(r=>visibleChannels.some(ch=>Number.isFinite(r[ch])&&r[ch]>=t));
+      if(idx>=0)startIndex=idx;
+      else showNotice(`Die Starttemperatur ${fmt(t,1)} °C wird von den gewählten Kanälen nicht erreicht.`);
+    }
+  }
+  const base=rows[startIndex]?.elapsedMin||0;
+  return rows.slice(startIndex).map(r=>Object.assign({},r,{elapsedMin:r.elapsedMin-base}));
+}
+
+function render(){
+  if(!data)return;
+  showNotice('');
+  const rows=viewRows(); renderRows=rows;
+  renderStats(rows); renderChart(rows);
+}
+
+function renderStats(rows){
+  const duration=rows.length?rows[rows.length-1].elapsedMin:0;
+  const cards=[
+    ['Messpunkte',rows.length.toLocaleString('de-DE')],
+    ['Dauer',els.timeUnit.value==='h'?`${fmt(duration/60,2)} h`:`${fmt(duration,1)} min`]
+  ];
+  const hold=holdConfig();
+  if(hold.enabled) cards.push(['Haltezeit',`${fmt(hold.end-hold.start,1)} min`]);
+  for(const ch of visibleChannels.slice(0,3)){
+    const vals=rows.map(r=>r[ch]).filter(Number.isFinite); if(!vals.length)continue;
+    cards.push([channelLabel(ch),`${fmt(Math.min(...vals),1)} – ${fmt(Math.max(...vals),1)} °C`]);
+  }
+  els.stats.innerHTML=cards.slice(0,6).map(c=>`<div class="stat"><div class="k">${escapeHtml(c[0])}</div><div class="v">${escapeHtml(c[1])}</div></div>`).join('');
+}
+
+function niceStep(range,target=6){
+  if(!(range>0))return 1;
+  const rough=range/target, pow=Math.pow(10,Math.floor(Math.log10(rough))), n=rough/pow;
+  return (n<1.5?1:n<3?2:n<7?5:10)*pow;
+}
+
+function renderChart(rows){
+  const w=Math.max(320,els.chartWrap.clientWidth), h=Math.max(280,els.chartWrap.clientHeight), m={l:68,r:24,t:30,b:52};
+  els.chart.setAttribute('viewBox',`0 0 ${w} ${h}`);
+
+  if(!rows.length || !visibleChannels.length){
+    els.chart.innerHTML='<text x="50%" y="50%" text-anchor="middle" fill="#6b7785">Bitte mindestens einen Kanal auswählen.</text>';
+    els.legend.innerHTML=''; return;
+  }
+
+  const ds=WBParser.minMaxDownsample(rows,visibleChannels,2200);
+  const unit=els.timeUnit.value, factor=unit==='h'?1/60:1;
+  const xMax=Math.max(1e-9,rows[rows.length-1].elapsedMin*factor);
+
+  const vals=[];
+  for(const r of rows) for(const ch of visibleChannels) if(Number.isFinite(r[ch])) vals.push(r[ch]);
+  const bands=getBands();
+  for(const b of bands){vals.push(b.target-b.tol,b.target+b.tol);}
+
+  let y0=numValue(els.yMin), y1=numValue(els.yMax);
+  if(!Number.isFinite(y0))y0=Math.min(...vals);
+  if(!Number.isFinite(y1))y1=Math.max(...vals);
+  if(y1<=y0)y1=y0+1;
+  if(numValue(els.yMin)===null || numValue(els.yMax)===null){
+    const pad=Math.max(1,(y1-y0)*.06);
+    if(numValue(els.yMin)===null)y0-=pad;
+    if(numValue(els.yMax)===null)y1+=pad;
+  }
+
+  const px=x=>m.l+(x/xMax)*(w-m.l-m.r);
+  const py=y=>m.t+(1-(y-y0)/(y1-y0))*(h-m.t-m.b);
+  const xStep=niceStep(xMax,7), yStep=niceStep(y1-y0,6);
+  const parts=[`<rect x="0" y="0" width="${w}" height="${h}" fill="#fff"/>`];
+
+  // Sollbereiche hinter Messkurven
+  for(const b of bands){
+    const low=b.target-b.tol, high=b.target+b.tol;
+    const yy1=py(Math.min(y1,high)), yy2=py(Math.max(y0,low));
+    const top=Math.min(yy1,yy2), height=Math.abs(yy2-yy1);
+    if(height>0 && high>=y0 && low<=y1){
+      parts.push(`<rect x="${m.l}" y="${top}" width="${w-m.l-m.r}" height="${height}" fill="${b.color.fill}" opacity="0.58"/>`);
+      const sy=py(b.target);
+      if(sy>=m.t && sy<=h-m.b) parts.push(`<line x1="${m.l}" y1="${sy}" x2="${w-m.r}" y2="${sy}" stroke="${b.color.stroke}" stroke-width="1" stroke-dasharray="5 4"/>`);
+    }
+  }
+
+  // Haltezeitbereich
+  const hold=holdConfig();
+  if(hold.enabled){
+    const sx=Math.max(m.l,Math.min(w-m.r,px(hold.start*factor)));
+    const ex=Math.max(m.l,Math.min(w-m.r,px(hold.end*factor)));
+    if(ex>m.l && sx<w-m.r){
+      parts.push(`<rect x="${Math.min(sx,ex)}" y="${m.t}" width="${Math.abs(ex-sx)}" height="${h-m.t-m.b}" fill="#64748b" opacity="0.07"/>`);
+      parts.push(`<line x1="${sx}" y1="${m.t}" x2="${sx}" y2="${h-m.b}" stroke="#475569" stroke-width="1.3" stroke-dasharray="5 4"/>`);
+      parts.push(`<line x1="${ex}" y1="${m.t}" x2="${ex}" y2="${h-m.b}" stroke="#475569" stroke-width="1.3" stroke-dasharray="5 4"/>`);
+      parts.push(`<text x="${Math.min(w-m.r-4,sx+4)}" y="${m.t+14}" font-size="10" fill="#475569">Haltezeit Start</text>`);
+      parts.push(`<text x="${Math.max(m.l+4,ex-4)}" y="${m.t+14}" text-anchor="end" font-size="10" fill="#475569">Ende · ${fmt(hold.end-hold.start,1)} min</text>`);
+    }
+  }
+
+  for(let y=Math.ceil(y0/yStep)*yStep;y<=y1+1e-9;y+=yStep){
+    const yy=py(y);
+    parts.push(`<line x1="${m.l}" y1="${yy}" x2="${w-m.r}" y2="${yy}" stroke="#e6ebef"/>`);
+    parts.push(`<text x="${m.l-10}" y="${yy+4}" text-anchor="end" font-size="11" fill="#66727e">${fmt(y,Math.abs(yStep)<1?1:0)}</text>`);
+  }
+  for(let x=0;x<=xMax+1e-9;x+=xStep){
+    const xx=px(x);
+    parts.push(`<line x1="${xx}" y1="${m.t}" x2="${xx}" y2="${h-m.b}" stroke="#eef1f4"/>`);
+    parts.push(`<text x="${xx}" y="${h-m.b+20}" text-anchor="middle" font-size="11" fill="#66727e">${fmt(x,xStep<1?1:0)}</text>`);
+  }
+
+  parts.push(`<line x1="${m.l}" y1="${h-m.b}" x2="${w-m.r}" y2="${h-m.b}" stroke="#77838f"/>`);
+  parts.push(`<line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${h-m.b}" stroke="#77838f"/>`);
+  parts.push(`<text x="${(m.l+w-m.r)/2}" y="${h-12}" text-anchor="middle" font-size="12" fill="#44505c">Zeit [${unit==='h'?'h':'min'}]</text>`);
+  parts.push(`<text transform="translate(17 ${(m.t+h-m.b)/2}) rotate(-90)" text-anchor="middle" font-size="12" fill="#44505c">Temperatur [°C]</text>`);
+
+  visibleChannels.forEach((ch,ci)=>{
+    let d='',started=false;
+    for(const r of ds){
+      const v=r[ch]; if(!Number.isFinite(v))continue;
+      const x=px(r.elapsedMin*factor), y=py(v);
+      d+=(started?' L ':'M ')+x.toFixed(2)+' '+y.toFixed(2); started=true;
+    }
+    parts.push(`<path d="${d}" fill="none" stroke="${colors[ci%colors.length]}" stroke-width="1.7" vector-effect="non-scaling-stroke"/>`);
+  });
+
+  parts.push(`<line id="crosshair" x1="0" x2="0" y1="${m.t}" y2="${h-m.b}" stroke="#66727e" stroke-width="1" stroke-dasharray="4 4" visibility="hidden"/>`);
+  els.chart.innerHTML=parts.join('');
+  els.chart.dataset.plot=JSON.stringify({w,h,m,xMax,y0,y1,factor});
+
+  els.rangeInfo.textContent=`${fmt(rows[rows.length-1].elapsedMin,1)} min · ${visibleChannels.map(channelLabel).join(', ')}`;
+
+  const channelLegend=visibleChannels.map((ch,i)=>`<span class="legend-item"><span class="swatch" style="background:${colors[i%colors.length]}"></span>${escapeHtml(channelLabel(ch))}</span>`);
+  const bandLegend=bands.map((b,i)=>`<span class="legend-item"><span class="band-swatch" style="background:${b.color.fill};border-color:${b.color.stroke}"></span>${escapeHtml(b.name)} ${fmt(b.target,1)} ± ${fmt(b.tol,1)} °C</span>`);
+  els.legend.innerHTML=[...channelLegend,...bandLegend].join('');
+}
+
+function nearestRow(xValue){
+  if(!renderRows.length)return null;
+  let lo=0,hi=renderRows.length-1;
+  while(lo<hi){const mid=(lo+hi)>>1;if(renderRows[mid].elapsedMin<xValue)lo=mid+1;else hi=mid;}
+  const a=renderRows[Math.max(0,lo-1)],b=renderRows[lo];
+  return !a?b:!b?a:(Math.abs(a.elapsedMin-xValue)<=Math.abs(b.elapsedMin-xValue)?a:b);
+}
+
+function pointerData(ev){
+  if(!renderRows.length)return null;
+  const p=JSON.parse(els.chart.dataset.plot||'null'); if(!p)return null;
+  const rect=els.chart.getBoundingClientRect();
+  const x=(ev.clientX-rect.left)/rect.width*p.w;
+  if(x<p.m.l||x>p.w-p.m.r)return null;
+  const xv=(x-p.m.l)/(p.w-p.m.l-p.m.r)*p.xMax;
+  const min=xv/p.factor;
+  const row=nearestRow(min); if(!row)return null;
+  const sx=p.m.l+(row.elapsedMin*p.factor/p.xMax)*(p.w-p.m.l-p.m.r);
+  return {p,rect,row,sx};
+}
+
+function chartPointer(ev){
+  const d=pointerData(ev);
+  if(!d){els.tooltip.classList.add('hidden');return;}
+  const {p,rect,row,sx}=d;
+  const cross=els.chart.querySelector('#crosshair');
+  if(cross){cross.setAttribute('x1',sx);cross.setAttribute('x2',sx);cross.setAttribute('visibility','visible');}
+  const t=els.timeUnit.value==='h'?`${fmt(row.elapsedMin/60,3)} h`:`${fmt(row.elapsedMin,2)} min`;
+  els.tooltip.innerHTML=`<strong>${t}</strong>${row.timestamp?`<br>${escapeHtml(row.timestamp)}`:''}`+
+    visibleChannels.map(ch=>`<br>${escapeHtml(channelLabel(ch))}: <strong>${fmt(row[ch],1)} °C</strong>`).join('');
+  els.tooltip.classList.remove('hidden');
+  const left=Math.min(rect.width-els.tooltip.offsetWidth-8,Math.max(8,(sx/p.w)*rect.width+10));
+  els.tooltip.style.left=left+'px'; els.tooltip.style.top='10px';
+}
+
+function setPickMode(mode){
+  pickMode=pickMode===mode?null:mode;
+  els.pickHoldStart.classList.toggle('active-pick',pickMode==='start');
+  els.pickHoldEnd.classList.toggle('active-pick',pickMode==='end');
+  els.chartWrap.classList.toggle('pick-mode',!!pickMode);
+  if(pickMode){
+    els.pickHint.textContent=pickMode==='start'?'Jetzt im Diagramm auf den gewünschten Start der Haltezeit klicken.':'Jetzt im Diagramm auf das gewünschte Ende der Haltezeit klicken.';
+    els.pickHint.classList.remove('hidden');
+  }else els.pickHint.classList.add('hidden');
+}
+
+function chartClick(ev){
+  if(!pickMode)return;
+  const d=pointerData(ev); if(!d)return;
+  const v=d.row.elapsedMin;
+  if(pickMode==='start')els.holdStart.value=v.toFixed(2);
+  else els.holdEnd.value=v.toFixed(2);
+  els.holdEnabled.checked=true;
+  setPickMode(null);
+  render();
+}
+
+function download(blob,name){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},100);
+}
+function baseName(){return (currentFile?.name||'WB_Diagramm').replace(/\.[^.]+$/,'')}
+function svgBlob(){
+  const clone=els.chart.cloneNode(true);
+  const c=clone.querySelector('#crosshair'); if(c)c.setAttribute('visibility','hidden');
+  const xml=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${clone.getAttribute('viewBox')}" width="1600" height="900">${clone.innerHTML}</svg>`;
+  return new Blob([xml],{type:'image/svg+xml;charset=utf-8'});
+}
+function exportCSV(){
+  const cols=['Zeitstempel','Zeit_min',...visibleChannels.map(ch=>channelLabel(ch))], lines=[cols.join(';')];
+  for(const r of renderRows){
+    lines.push([r.timestamp||'',r.elapsedMin.toFixed(5).replace('.',','),...visibleChannels.map(ch=>Number.isFinite(r[ch])?String(r[ch]).replace('.',','):'')].join(';'));
+  }
+  download(new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),baseName()+'_Diagrammdaten.csv');
+}
+
+// Datei
+els.pick.addEventListener('click',()=>els.file.click());
+$('changeBtn').addEventListener('click',()=>els.file.click());
+els.file.addEventListener('change',()=>{if(els.file.files[0])loadFile(els.file.files[0])});
+['dragenter','dragover'].forEach(n=>els.drop.addEventListener(n,e=>{e.preventDefault();els.drop.classList.add('drag')}));
+['dragleave','drop'].forEach(n=>els.drop.addEventListener(n,e=>{e.preventDefault();els.drop.classList.remove('drag')}));
+els.drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)loadFile(f)});
+els.drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();els.file.click()}});
+
+// Darstellung
+[els.startEnabled,els.startTemp,els.timeUnit,els.yMin,els.yMax,els.holdEnabled,els.holdStart,els.holdEnd].forEach(x=>{
+  x.addEventListener(x.tagName==='SELECT'?'change':'input',render);
+});
+els.addBand.addEventListener('click',()=>{addBand();render();});
+els.pickHoldStart.addEventListener('click',()=>setPickMode('start'));
+els.pickHoldEnd.addEventListener('click',()=>setPickMode('end'));
+els.clearHold.addEventListener('click',()=>{
+  els.holdStart.value=''; els.holdEnd.value=''; els.holdEnabled.checked=false; setPickMode(null); render();
+});
+
+// Export
+$('resetBtn').addEventListener('click',()=>location.reload());
+$('pngBtn').addEventListener('click',()=>{
+  const blob=svgBlob(),url=URL.createObjectURL(blob),img=new Image();
+  img.onload=()=>{
+    const c=document.createElement('canvas');c.width=1800;c.height=1000;
+    const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(url);c.toBlob(b=>download(b,baseName()+'_Diagramm.png'),'image/png');
+  };
+  img.src=url;
+});
+$('svgBtn').addEventListener('click',()=>download(svgBlob(),baseName()+'_Diagramm.svg'));
+$('csvBtn').addEventListener('click',exportCSV);
+$('printBtn').addEventListener('click',()=>window.print());
+
+// Diagramm
+els.chart.addEventListener('pointermove',chartPointer);
+els.chart.addEventListener('pointerdown',ev=>{chartPointer(ev);chartClick(ev);});
+els.chart.addEventListener('pointerleave',()=>{
+  els.tooltip.classList.add('hidden');
+  const c=els.chart.querySelector('#crosshair'); if(c)c.setAttribute('visibility','hidden');
+});
+if(typeof ResizeObserver!=='undefined'){
+  new ResizeObserver(()=>{if(data)renderChart(renderRows)}).observe(els.chartWrap);
+}else{
+  window.addEventListener('resize',()=>{if(data)renderChart(renderRows)});
+}
+
+// Ein leerer Sollbereich als Startpunkt
+addBand();
+
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
