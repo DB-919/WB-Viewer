@@ -1,4 +1,4 @@
-BECKER WB VIEWER WEBAPP V1.5
+BECKER WB VIEWER WEBAPP V1.6
 ==============================
 
 Vollständige Standalone-WebApp für Wärmebehandlungs-/Loggerdaten.
@@ -17,9 +17,11 @@ Für iPhone/iPad oder Installation als WebApp:
 ENTHALTENE FUNKTIONEN
 ---------------------
 - Import von MN/AT-Logger-TXT sowie TXT/CSV/TSV-Tabellen.
+- Neues „Auto Logging“-CSV-Format mit Geräte-Vorspann (SN/FW/Last adjustment), UTF-16 und den Spalten DD-MM-YY / HH:MM:SS.
+- CH1 bis CH4 dürfen in jeder beliebigen Kombination belegt sein; nicht belegte Kanäle (z. B. ---) werden ignoriert, ohne Werte zu verschieben.
 - Automatische Erkennung von 1 bis 4 belegten Messkanälen.
 - Positionsgetreuer Loggerimport: leere Zwischenkanäle verschieben keine Messwerte.
-- Unterstützung von CH1-only, CH1+CH4 und CH1-CH4.
+- Unterstützt sämtliche 15 möglichen nichtleeren Kombinationen aus CH1, CH2, CH3 und CH4.
 - Automatische Erkennung von UTF-8/UTF-16-Textdateien.
 - Kanal ein-/ausblenden und frei benennen.
 - Diagramm optional ab definierter Starttemperatur.
@@ -41,7 +43,7 @@ manifest.webmanifest   PWA-Metadaten für gehostete Nutzung
 service-worker.js      Offline-Cache bei gehosteter Nutzung
 icon-180.png           App-Icon iOS
 icon-512.png           PWA-App-Icon
-CHANGELOG_V1_5.txt     Änderungen dieser Version
+CHANGELOG_V1_6.txt     Änderungen dieser Version
 
 HINWEIS
 -------
