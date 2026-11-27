@@ -1,0 +1,14 @@
+BECKER WB VIEWER WEBAPP V1.7
+============================
+
+Basis: V1.6. Alle bisherigen Importformate und CH1-CH4-Kombinationen bleiben erhalten.
+
+Neu:
+- Diagramm in X-Richtung beschneidbar über X-Start und X-Ende in Minuten.
+- X-Start und X-Ende können direkt per Klick im Diagramm gesetzt werden.
+- Y-Bereich weiterhin frei über Y-Min/Y-Max, jetzt mit echtem Clipping der Messkurven am Plotbereich.
+- X-Ausschnitt wirkt auf Diagramm, Statistik, Tooltip und CSV-Diagrammdatenexport.
+- Originalmessdaten bleiben unverändert; die Beschneidung ist nur eine Darstellung/Auswahl.
+- Button „Ausschnitt zurücksetzen“ löscht X- und Y-Grenzen gemeinsam.
+- Bereichsanzeige oberhalb des Diagramms zeigt bei aktivem X-Ausschnitt Start, Ende und Zahl der sichtbaren Messpunkte.
+- PWA-Cache auf V1.7 angehoben.

@@ -1,7 +1,7 @@
 {
   "name": "Becker WB Viewer",
   "short_name": "WB Viewer",
-  "description": "Lokaler Viewer V1.6 für Wärmebehandlungs- und Loggerdaten",
+  "description": "Lokaler Viewer V1.7 für Wärmebehandlungs- und Loggerdaten",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

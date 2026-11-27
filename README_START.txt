@@ -1,4 +1,4 @@
-BECKER WB VIEWER WEBAPP V1.6
+BECKER WB VIEWER WEBAPP V1.7
 ==============================
 
 Vollständige Standalone-WebApp für Wärmebehandlungs-/Loggerdaten.
@@ -26,7 +26,9 @@ ENTHALTENE FUNKTIONEN
 - Kanal ein-/ausblenden und frei benennen.
 - Diagramm optional ab definierter Starttemperatur.
 - Zeitachse Minuten/Stunden.
-- Manuelle Y-Achsen-Grenzen.
+- Diagramm in X und Y beschneidbar: X-Start/X-Ende und Y-Min/Y-Max.
+- X-Start und X-Ende können zusätzlich direkt im Diagramm angeklickt werden.
+- Manuelle Y-Achsen-Grenzen mit echtem Clipping der Kurven am sichtbaren Plotbereich.
 - Bis zu 5 Solltemperaturbereiche mit Sollwert ± Toleranz.
 - Haltebereich mit Start/Ende und Setzen direkt im Diagramm.
 - Kennwerte/Übersicht zum geladenen Verlauf.
@@ -43,7 +45,7 @@ manifest.webmanifest   PWA-Metadaten für gehostete Nutzung
 service-worker.js      Offline-Cache bei gehosteter Nutzung
 icon-180.png           App-Icon iOS
 icon-512.png           PWA-App-Icon
-CHANGELOG_V1_6.txt     Änderungen dieser Version
+CHANGELOG_V1_7.txt     Änderungen dieser Version
 
 HINWEIS
 -------
