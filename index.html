@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="WB Viewer">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
-<title>Becker WB Viewer V1.5</title>
+<title>Becker WB Viewer V1.6</title>
 <style>
 :root{
   --bg:#f5f7fa;--panel:#fff;--text:#17202a;--muted:#6b7785;--border:#d9e0e7;
@@ -120,7 +120,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:12px 20px 22p
 
   <header class="topbar">
     <div>
-      <h1>BECKER WB VIEWER <span>V1.5</span></h1>
+      <h1>BECKER WB VIEWER <span>V1.6</span></h1>
       <p>Wärmebehandlungsdaten einlesen · darstellen · markieren · exportieren</p>
     </div>
     <button id="resetBtn" class="ghost" type="button">Zurücksetzen</button>
@@ -247,7 +247,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:12px 20px 22p
   function num(v){
     if(v === null || v === undefined) return null;
     let s = String(v).trim().replace(/\s/g,'');
-    if(!s || /^[-–—]$/.test(s)) return null;
+    if(!s || /^(?:[-–—]{1,}|n\/?a|nan|null)$/i.test(s)) return null;
     if(s.includes(',') && !s.includes('.')) s=s.replace(',','.');
     else if(s.includes(',') && s.includes('.')) {
       if(s.lastIndexOf(',') > s.lastIndexOf('.')) s=s.replace(/\./g,'').replace(',','.');
@@ -400,6 +400,25 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:12px 20px 22p
     return best;
   }
 
+  // Sucht gezielt die eigentliche Tabellenkopfzeile. Das ist robuster bei
+  // Logger-CSV-Dateien mit Geräteinformationen vor den Messwerten.
+  function detectTableLayout(lines){
+    const candidates=['\t',';',',']; let best=null;
+    for(let i=0;i<Math.min(lines.length,160);i++){
+      for(const sep of candidates){
+        const headers=splitCSV(lines[i],sep);
+        const channels=headers.map(channelFromHeader).filter(Boolean);
+        if(!channels.length)continue;
+        const normalized=headers.map(normHeader);
+        const hasDate=normalized.some(h=>h==='date'||h==='datum'||/^(?:ddmmyy|ddmmyyyy|yyyymmdd|ttmmjj|ttmmjjjj|jjjjmmtt)$/.test(h));
+        const hasTime=normalized.some(h=>h==='time'||h==='uhrzeit'||/^(?:hhmm|hhmmss|hhmmsssss)$/.test(h));
+        const score=channels.length*100+(hasDate?20:0)+(hasTime?20:0)+headers.length;
+        if(!best || score>best.score)best={sep,headerIndex:i,headers,score};
+      }
+    }
+    return best;
+  }
+
   function channelFromHeader(h){
     const n=normHeader(h); let m=n.match(/^(?:ch|channel|kanal)([1-9]\d*)$/); if(m)return 'CH'+m[1];
     m=n.match(/^([1-9]\d*)ch$/); if(m)return 'CH'+m[1];
@@ -409,35 +428,45 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:12px 20px 22p
   function parseDelimited(text){
     const lines=cleanText(text).split('\n').filter(x=>x.trim());
     if(lines.length<2)throw new Error('Zu wenig Datenzeilen.');
-    const det=detectDelimiter(lines);
+
+    // Bei Auto-Logging-CSV stehen z. B. SN/FW/Abgleich vor der Tabelle.
+    // Deshalb zuerst Kopfzeile+Trennzeichen gemeinsam anhand CH1..CH4 suchen.
+    const layout=detectTableLayout(lines);
+    const det=layout || detectDelimiter(lines);
     if(!det)throw new Error('Dateiformat nicht erkannt. Unterstützt werden TXT, CSV und TSV.');
-    let headerIndex=0;
-    for(let i=0;i<Math.min(lines.length,40);i++){
-      const hs=splitCSV(lines[i],det.sep);
-      const chs=hs.map(channelFromHeader).filter(Boolean);
-      if(chs.length){headerIndex=i;break;}
+    let headerIndex=layout ? layout.headerIndex : 0;
+    if(!layout){
+      for(let i=0;i<Math.min(lines.length,160);i++){
+        const hs=splitCSV(lines[i],det.sep);
+        const chs=hs.map(channelFromHeader).filter(Boolean);
+        if(chs.length){headerIndex=i;break;}
+      }
     }
-    const headers=splitCSV(lines[headerIndex],det.sep);
+    const headers=layout ? layout.headers : splitCSV(lines[headerIndex],det.sep);
     const normalized=headers.map(normHeader);
     const channelCols=[];
     headers.forEach((h,i)=>{const ch=channelFromHeader(h); if(ch)channelCols.push([i,ch]);});
     if(!channelCols.length)throw new Error('Keine Kanalspalten erkannt (z. B. CH1, CH2 oder 1ch, 2ch).');
 
     const find=(tests)=>normalized.findIndex(h=>tests.some(t=>typeof t==='string'?h===t:t.test(h)));
-    const dateI=find(['date','datum']);
-    const timeI=find(['time','uhrzeit']);
+    const dateI=find(['date','datum',/^(?:ddmmyy|ddmmyyyy|yyyymmdd|ttmmjj|ttmmjjjj|jjjjmmtt)$/]);
+    const timeI=find(['time','uhrzeit',/^(?:hhmm|hhmmss|hhmmsssss)$/]);
     const tsI=find(['timestamp','datetime','zeitstempel']);
     const elapsedMinI=find(['elapsedmin','elapsedminutes','zeitmin','minuten','minutes']);
     const elapsedSecI=find(['elapsedsec','elapsedseconds','zeitsec','sekunden','seconds']);
     const elapsedHourI=find(['elapsedh','elapsedhours','zeith','stunden','hours']);
     const genericTimeI=find([/^time(min|minutes)?$/, /^zeit(min|minutes)?$/]);
+    const intervalI=find(['rat','rate','interval','intervall','samplinginterval','abtastrate']);
+    const unitI=find(['unit','einheit']);
 
-    const raw=[]; let skipped=0;
+    const raw=[]; let skipped=0, interval='', unit='';
     for(let li=headerIndex+1;li<lines.length;li++){
       const p=splitCSV(lines[li],det.sep);
       if(p.length<Math.max(...channelCols.map(x=>x[0]))+1){skipped++;continue;}
       const r={};
       let ms=null, elapsed=null;
+      if(!interval && intervalI>=0 && p[intervalI]) interval=String(p[intervalI]).trim();
+      if(!unit && unitI>=0 && p[unitI]) unit=String(p[unitI]).trim();
       if(dateI>=0 && timeI>=0)ms=parseDateTime(p[dateI],p[timeI]);
       else if(tsI>=0){
         const v=String(p[tsI]||'').trim();
@@ -457,7 +486,16 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:12px 20px 22p
     }
     if(!raw.length)throw new Error('Keine gültigen Messzeilen mit Zeitinformation gefunden.');
     const sepName=det.sep==='\t'?'Tab':det.sep===';'?'Semikolon':'Komma';
-    return finalize(raw,[...new Set(channelCols.map(x=>x[1]))],{format:`Texttabelle (${sepName})`,separator:sepName,skippedRows:skipped});
+    const autoLogging=lines.slice(0,Math.min(headerIndex,12)).some(l=>/auto\s*logging/i.test(l));
+    let serial='', firmware='';
+    for(const line of lines.slice(0,Math.min(headerIndex,20))){
+      let m=line.match(/^\s*SN\s*:\s*(?:\t\s*)?([^\t]+)\s*$/i); if(m && !serial)serial=m[1].trim();
+      m=line.match(/^\s*FW\s*:\s*(?:\t\s*)?([^\t]+)\s*$/i); if(m && !firmware)firmware=m[1].trim();
+    }
+    return finalize(raw,[...new Set(channelCols.map(x=>x[1]))],{
+      format:autoLogging?'Auto Logging CSV':`Texttabelle (${sepName})`,
+      separator:sepName,skippedRows:skipped,interval,unit,serial,firmware
+    });
   }
 
   function parseText(text, filename){
@@ -483,7 +521,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:12px 20px 22p
     }
     return [...keep].sort((a,b)=>a-b).map(i=>rows[i]);
   }
-  root.WBParser={decodeArrayBuffer,parseText,parseMNAT,parseDelimited,minMaxDownsample,num};
+  root.WBParser={decodeArrayBuffer,parseText,parseMNAT,parseDelimited,minMaxDownsample,num,detectTableLayout};
 })(typeof globalThis!=='undefined'?globalThis:window);
 
 </script>
@@ -562,13 +600,13 @@ async function loadFile(file){
     parsed.channels.forEach(ch=>aliases[ch]=ch);
     els.fileName.textContent=file.name;
     const dur=parsed.rows.length?parsed.rows[parsed.rows.length-1].elapsedMin:0;
-    els.fileMeta.textContent=`${parsed.meta.format || 'Text'} · ${parsed.rows.length.toLocaleString('de-DE')} Punkte · ${fmt(dur/60,2)} h${parsed.meta.interval?' · '+parsed.meta.interval:''}${parsed.meta.unit?' · '+parsed.meta.unit:''}`;
+    els.fileMeta.textContent=`${parsed.meta.format || 'Text'} · ${parsed.rows.length.toLocaleString('de-DE')} Punkte · ${fmt(dur/60,2)} h${parsed.meta.interval?' · '+parsed.meta.interval:''}${parsed.meta.unit?' · '+parsed.meta.unit:''}${parsed.meta.serial?' · SN '+parsed.meta.serial:''}`;
     buildChannels();
     els.drop.classList.add('hidden'); els.workspace.classList.remove('hidden');
     render();
 
     const info=[];
-    if(parsed.channels.length<4 && /MN\/AT/i.test(parsed.meta.format||''))
+    if(parsed.channels.length<4)
       info.push(`Aktive Kanäle: ${parsed.channels.join(', ')}.`);
     if(parsed.meta.skippedRows)
       info.push(`${parsed.meta.skippedRows} Zeile(n) wurden übersprungen.`);

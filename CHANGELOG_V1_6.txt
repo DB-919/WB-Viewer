@@ -1,0 +1,13 @@
+BECKER WB VIEWER WEBAPP V1.6
+============================
+
+- Neues Auto-Logging-CSV-Format ergänzt.
+- UTF-16 LE/BE wird weiterhin automatisch erkannt.
+- Tabellenkopf darf nach Geräteinformationen wie Auto Logging, SN, FW und Last adjustment stehen.
+- Datumsüberschrift DD-MM-YY und Zeitüberschrift HH:MM:SS werden erkannt.
+- Spalten rAt (Messintervall) und Unit werden übernommen.
+- Platzhalter wie --- werden explizit als unbelegter Kanal behandelt.
+- CH1, CH2, CH3 und CH4 sind positionsgetreu und können in jeder beliebigen Kombination belegt sein.
+- Alle 15 nichtleeren Kanalkombinationen werden unterstützt und automatisch auf tatsächlich vorhandene Kanäle reduziert.
+- Bestehende MN/AT-TXT-, CSV- und TSV-Importe bleiben erhalten.
+- PWA-Cache auf V1.6 angehoben.
